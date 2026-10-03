@@ -1,0 +1,1 @@
+# The original monolithic configuration has been split into dedicated files for networking, security, ALB, EC2, budgets, and flow logs.

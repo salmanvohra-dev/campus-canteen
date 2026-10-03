@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartBite Canteen Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-50 text-gray-900 min-h-screen selection:bg-red-600 selection:text-white">
+    <div class="max-w-7xl mx-auto p-6">
+        <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <div>
+                <h1 class="text-4xl font-black text-gray-900">Smart<span class="text-red-600">Bite</span> Canteen Portal</h1>
+                <p class="text-gray-500 mt-2 font-medium">Live order queue for canteen staff. No student redirect needed.</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <a href="/" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold transition-all shadow-md shadow-red-200">
+                    <i class="fa-solid fa-user-graduate"></i> Student Portal
+                </a>
+                <a href="/admin.html" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-white border border-red-200 hover:bg-red-50 text-red-600 font-bold transition-all shadow-sm">
+                    <i class="fa-solid fa-user-shield"></i> Admin Portal
+                </a>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white border border-red-100 rounded-3xl p-5 shadow-sm">
+                <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-bold">New Orders</p>
+                <p id="countNew" class="text-4xl font-black text-red-600 mt-4">0</p>
+            </div>
+            <div class="bg-white border border-red-100 rounded-3xl p-5 shadow-sm">
+                <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-bold">Confirmed</p>
+                <p id="countConfirmed" class="text-4xl font-black text-purple-600 mt-4">0</p>
+            </div>
+            <div class="bg-white border border-red-100 rounded-3xl p-5 shadow-sm">
+                <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-bold">Ready</p>
+                <p id="countReady" class="text-4xl font-black text-green-600 mt-4">0</p>
+            </div>
+        </div>
+
+        <div id="noOrders" class="bg-red-50 border border-red-100 rounded-3xl p-8 text-center shadow-sm">
+            <h2 class="text-2xl font-bold text-red-700">Orders will appear here instantly.</h2>
+            <p class="text-red-500 mt-3 font-medium">Open the student portal in another tab and place an order. The canteen page updates automatically.</p>
+        </div>
+
+        <div id="ordersContainer" class="space-y-6 hidden"></div>
+    </div>
+
+    <script>
+        let knownOrderIds = new Set();
+        let initialLoad = true;
+
+        function formatDate(iso) {
+            const date = new Date(iso);
+            return date.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+        }
+
+        function playNewOrderSound() {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, ctx.currentTime);
+                gain.gain.setValueAtTime(0.2, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.18);
+            } catch (err) {
+                console.error('Audio playback failed:', err);
+            }
+        }
+
+        function updateSummary(orders) {
+            const counts = orders.reduce((acc, order) => {
+                acc[order.status] = (acc[order.status] || 0) + 1;
+                return acc;
+            }, {});
+
+            document.getElementById('countNew').innerText = counts.New || 0;
+            document.getElementById('countConfirmed').innerText = counts.Confirmed || 0;
+            document.getElementById('countReady').innerText = counts.Ready || 0;
+        }
+
+        function renderOrders(orders) {
+            if (orders.length === 0) {
+                document.getElementById('noOrders').classList.remove('hidden');
+                document.getElementById('ordersContainer').classList.add('hidden');
+                updateSummary([]);
+                return;
+            }
+
+            document.getElementById('noOrders').classList.add('hidden');
+            document.getElementById('ordersContainer').classList.remove('hidden');
+
+            const newOrders = orders.filter(order => !knownOrderIds.has(order._id));
+            if (!initialLoad && newOrders.some(order => order.status === 'New')) {
+                playNewOrderSound();
+            }
+
+            orders.forEach(order => knownOrderIds.add(order._id));
+            initialLoad = false;
+
+            document.getElementById('ordersContainer').innerHTML = orders.map(order => {
+                // Themed Status Badges
+                const badgeColor = order.status === 'Ready' 
+                    ? 'bg-green-100 text-green-700 border border-green-200' 
+                    : order.status === 'Confirmed' 
+                        ? 'bg-purple-100 text-purple-700 border border-purple-200' 
+                        : 'bg-red-100 text-red-700 border border-red-200';
+                
+                const confirmDisabled = order.status !== 'New' || order.paymentStatus !== 'Paid';
+                const readyDisabled = order.status !== 'Confirmed';
+
+                return `
+                    <div class="bg-white border border-red-100 rounded-3xl p-6 shadow-sm">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+                            <div>
+                                <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-bold">Order ID</p>
+                                <p class="text-xl font-bold text-gray-900 mt-2">${order.orderId}</p>
+                                <p class="text-gray-500 text-sm mt-1">${order.student} • ${formatDate(order.createdAt)}</p>
+                            </div>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <span class="px-3 py-1.5 rounded-md text-xs font-bold uppercase ${badgeColor}">${order.status}</span>
+                                <span class="px-3 py-1.5 rounded-md text-xs font-bold uppercase bg-gray-100 text-gray-600 border border-gray-200">${order.paymentStatus}</span>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto mb-5">
+                            <table class="min-w-full text-sm text-left border-separate border-spacing-y-4">
+                                <thead>
+                                    <tr class="text-gray-400 uppercase text-xs tracking-[0.2em]">
+                                        <th class="pb-3 border-b border-red-50">Item</th>
+                                        <th class="pb-3 border-b border-red-50">Qty</th>
+                                        <th class="pb-3 border-b border-red-50">Price</th>
+                                        <th class="pb-3 border-b border-red-50">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-red-50">
+                                    ${order.items.map(item => `
+                                        <tr>
+                                            <td class="py-3 pr-6 font-semibold text-gray-800">${item.name}</td>
+                                            <td class="py-3 pr-6 text-gray-500 font-medium">${item.qty}</td>
+                                            <td class="py-3 pr-6 text-gray-500 font-medium">₹${item.price}</td>
+                                            <td class="py-3 text-gray-900 font-black">₹${item.total}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-red-50">
+                            <div>
+                                <p class="text-gray-400 text-xs uppercase tracking-[0.2em] font-bold">Order Total</p>
+                                <p class="text-3xl font-black text-red-600 mt-2">₹${order.total}</p>
+                            </div>
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                <div class="flex items-center gap-3">
+                                    <button onclick="setOrderStatus('${order._id}', 'Confirmed')" ${confirmDisabled ? 'disabled' : ''} class="px-6 py-3 rounded-2xl ${confirmDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' : 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-200'} font-bold transition-all text-sm">Confirm Order</button>
+                                    <button onclick="setOrderStatus('${order._id}', 'Ready')" ${readyDisabled ? 'disabled' : ''} class="px-6 py-3 rounded-2xl ${readyDisabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' : 'bg-gray-800 hover:bg-gray-900 text-white shadow-md shadow-gray-200'} font-bold transition-all text-sm">Order Ready</button>
+                                </div>
+                                <div>
+                                    ${order.paymentStatus === 'Pending' ? `<button onclick="markPaymentPaid('${order._id}')" class="px-5 py-3 rounded-2xl bg-amber-100 hover:bg-amber-200 border border-amber-200 text-amber-700 font-bold text-sm transition-all">Mark Paid</button>` : (order.token ? `<span class="px-4 py-3 rounded-2xl text-xs font-black tracking-widest uppercase bg-red-50 border border-red-200 text-red-600 inline-block">Token: ${order.token}</span>` : '')}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            updateSummary(orders);
+        }
+
+        async function fetchOrders() {
+            try {
+                const response = await fetch('/api/orders');
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Unable to fetch orders.');
+                }
+                renderOrders(data.orders);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function setOrderStatus(orderId, status) {
+            try {
+                const response = await fetch(`/api/orders/${orderId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status })
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'Unable to update status.');
+                }
+                fetchOrders();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            fetchOrders();
+            setInterval(fetchOrders, 5000);
+        });
+    </script>
+</body>
+</html>

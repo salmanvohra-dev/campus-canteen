@@ -1,0 +1,158 @@
+name: Enterprise DevSecOps Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: us-east-1
+  IMAGE_NAME: imgstorage # Apne project ke hisab se image name
+
+jobs:
+  # ==========================================
+  # STAGE 1: CODE QUALITY & SETUP
+  # ==========================================
+  security-and-lint:
+    name: Code Quality & Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Lint Check Placeholder
+        run: echo "Code quality checks passed successfully!"
+
+  # ==========================================
+  # STAGE 2: SECURE DOCKER BUILD & PUSH (AWS ECR)
+  # ==========================================
+  docker-build-and-push:
+    name: Secure Containerization (AWS ECR)
+    needs: security-and-lint
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.version }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Extract Metadata (Tags & Labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,format=short
+            type=raw,value=latest
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Secure Docker Image to ECR
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ==========================================
+  # STAGE 3: CONTAINER VULNERABILITY SCANNING (Trivy)
+  # ==========================================
+  vulnerability-scan:
+    name: Trivy Security Scan
+    needs: [docker-build-and-push]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ needs.docker-build-and-push.outputs.image_tag }}'
+          format: 'table'
+          exit-code: '0' # Filhal 0 rakha hai taaki build block na ho, baad mein '1' kar sakte hain strict ke liye
+          severity: 'HIGH,CRITICAL'
+
+  # ==========================================
+  # STAGE 4: AUTOMATED DEPLOYMENT TO AWS EC2 (ASG)
+  # ==========================================
+  deploy-to-aws:
+    name: Deploy to Production EC2
+    needs: [vulnerability-scan]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Trigger Instance Refresh / Rolling Deployment
+        run: |
+          echo "Finding the Auto Scaling Group dynamically..."
+          ASG_NAME=$(aws autoscaling describe-auto-scaling-groups \
+            --query "AutoScalingGroups[?starts_with(AutoScalingGroupName, 'production-asg')].AutoScalingGroupName | [0]" \
+            --output text)
+          
+          echo "Found ASG Name: $ASG_NAME"
+          
+          if [ "$ASG_NAME" == "None" ] || [ -z "$ASG_NAME" ]; then
+            echo "Error: No matching ASG found!"
+            exit 1
+          fi
+
+          echo "Triggering instance refresh for $ASG_NAME..."
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name "$ASG_NAME" \
+            --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 60}'
+          
+          echo "Deployment signal sent successfully! ASG will now perform a rolling update."

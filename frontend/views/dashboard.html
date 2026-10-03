@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartBite – Student Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+        * { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body { background: #020817; }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .card {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255,255,255,0.07);
+        }
+        .stat-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255,255,255,0.07);
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .stat-card:hover { transform: translateY(-2px); }
+
+        /* Order status tracker */
+        .step-done   { background:#10b981; border-color:#10b981; color:#fff; }
+        .step-active { background:#1e293b; border-color:#10b981; color:#10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.2); }
+        .step-idle   { background:#1e293b; border-color:#334155; color:#475569; }
+        .line-done   { background:#10b981; }
+        .line-idle   { background:#1e293b; }
+
+        /* Badges */
+        .badge-new       { background:rgba(96,165,250,0.12);  color:#60a5fa; border:1px solid rgba(96,165,250,0.25); }
+        .badge-confirmed { background:rgba(167,139,250,0.12); color:#a78bfa; border:1px solid rgba(167,139,250,0.25); }
+        .badge-ready     { background:rgba(16,185,129,0.12);  color:#34d399; border:1px solid rgba(16,185,129,0.25); }
+        .badge-paid      { background:rgba(16,185,129,0.12);  color:#34d399; border:1px solid rgba(16,185,129,0.25); }
+        .badge-pending   { background:rgba(251,191,36,0.12);  color:#fbbf24; border:1px solid rgba(251,191,36,0.25); }
+
+        @keyframes pulse-ring {
+            0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+            70%  { box-shadow: 0 0 0 8px rgba(16,185,129,0); }
+            100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+        }
+        .pulse-ring { animation: pulse-ring 2s infinite; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        .tab-active   { background:#10b981; color:#fff; }
+        .tab-inactive { background:transparent; color:#64748b; }
+        .tab-inactive:hover { color:#94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 pb-20">
+
+    <!-- Background -->
+    <div class="fixed inset-0 z-0 pointer-events-none">
+        <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(16,185,129,0.06)_0%,_transparent_60%)]"></div>
+        <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_rgba(99,102,241,0.05)_0%,_transparent_60%)]"></div>
+    </div>
+
+    <div class="relative z-10 max-w-5xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- ── HEADER ── -->
+        <header class="glass rounded-3xl px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div id="avatarCircle"
+                     class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-2xl font-black text-white shadow-lg shadow-emerald-500/20 flex-shrink-0">
+                    ?
+                </div>
+                <div>
+                    <p class="text-[11px] text-emerald-400 font-bold uppercase tracking-widest mb-0.5">Student Dashboard</p>
+                    <h1 id="studentName" class="text-xl font-black text-white leading-tight">Loading…</h1>
+                    <p class="text-xs text-slate-500 mt-0.5">SmartBite Campus Canteen</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/" class="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 px-4 py-2.5 rounded-xl transition-all">
+                    <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </a>
+            </div>
+        </header>
+
+        <!-- ── STATS ── -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                        <i class="fa-solid fa-receipt text-blue-400 text-sm"></i>
+                    </div>
+                </div>
+                <p id="statTotal" class="text-3xl font-black text-white">0</p>
+                <p class="text-xs text-slate-500 font-semibold mt-1">Total Orders</p>
+            </div>
+            <div class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                        <i class="fa-solid fa-indian-rupee-sign text-emerald-400 text-sm"></i>
+                    </div>
+                </div>
+                <p id="statSpent" class="text-3xl font-black text-white">₹0</p>
+                <p class="text-xs text-slate-500 font-semibold mt-1">Total Spent</p>
+            </div>
+            <div class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                        <i class="fa-solid fa-fire text-amber-400 text-sm"></i>
+                    </div>
+                </div>
+                <p id="statFav" class="text-sm font-black text-white leading-snug">—</p>
+                <p class="text-xs text-slate-500 font-semibold mt-1">Fav Item</p>
+            </div>
+            <div class="stat-card rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                        <i class="fa-solid fa-circle-check text-violet-400 text-sm"></i>
+                    </div>
+                </div>
+                <p id="statPending" class="text-3xl font-black text-white">0</p>
+                <p class="text-xs text-slate-500 font-semibold mt-1">Pending Payment</p>
+            </div>
+        </div>
+
+        <!-- ── MY ORDERS ── -->
+        <section class="glass rounded-3xl overflow-hidden">
+
+            <!-- Section header -->
+            <div class="px-6 pt-6 pb-4 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                        <i class="fa-solid fa-bag-shopping text-emerald-400 text-sm"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-black text-white">My Orders</h2>
+                        <p class="text-xs text-slate-500">All your placed orders</p>
+                    </div>
+                </div>
+                <!-- Tabs -->
+                <div class="flex gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                    <button id="tabAll"     onclick="setTab('all')"     class="tab-active     text-xs font-bold px-4 py-1.5 rounded-lg transition-all">All</button>
+                    <button id="tabActive"  onclick="setTab('active')"  class="tab-inactive text-xs font-bold px-4 py-1.5 rounded-lg transition-all">Active</button>
+                    <button id="tabDone"    onclick="setTab('done')"    class="tab-inactive text-xs font-bold px-4 py-1.5 rounded-lg transition-all">Completed</button>
+                </div>
+            </div>
+
+            <!-- Orders list -->
+            <div id="ordersList" class="divide-y divide-slate-800/60 px-2 py-2">
+                <div class="flex items-center justify-center py-16 text-slate-500 text-sm gap-2">
+                    <i class="fa-solid fa-spinner animate-spin"></i> Loading orders…
+                </div>
+            </div>
+
+        </section>
+
+    </div>
+
+    <script>
+        const params    = new URLSearchParams(location.search);
+        const name      = params.get('name') || '';
+        let allOrders   = [];
+        let currentTab  = 'all';
+        let pollTimer   = null;
+
+        // ── Init ─────────────────────────────────────────────────────────────
+        async function init() {
+            if (!name) return;
+            document.getElementById('studentName').textContent  = name;
+            document.getElementById('avatarCircle').textContent = name.charAt(0).toUpperCase();
+            await fetchOrders();
+            startPolling();
+        }
+
+        async function fetchOrders() {
+            try {
+                const res  = await fetch(`/api/orders/student/${encodeURIComponent(name)}`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                allOrders = data.orders;
+                renderStats();
+                renderOrders();
+            } catch (e) {
+                document.getElementById('ordersList').innerHTML = `
+                    <div class="flex items-center justify-center py-16 text-rose-400 text-sm gap-2">
+                        <i class="fa-solid fa-circle-exclamation"></i> ${e.message}
+                    </div>`;
+            }
+        }
+
+        // ── Stats ─────────────────────────────────────────────────────────────
+        function renderStats() {
+            const paid    = allOrders.filter(o => o.paymentStatus === 'Paid');
+            const pending = allOrders.filter(o => o.paymentStatus === 'Pending');
+            const spent   = paid.reduce((s, o) => s + o.total, 0);
+
+            const freq = {};
+            allOrders.forEach(o => o.items.forEach(i => { freq[i.name] = (freq[i.name]||0) + i.qty; }));
+            const fav = Object.entries(freq).sort((a,b) => b[1]-a[1])[0];
+
+            document.getElementById('statTotal').textContent   = allOrders.length;
+            document.getElementById('statSpent').textContent   = `₹${spent}`;
+            document.getElementById('statFav').textContent     = fav ? fav[0] : '—';
+            document.getElementById('statPending').textContent = pending.length;
+        }
+
+        // ── Tabs ──────────────────────────────────────────────────────────────
+        function setTab(tab) {
+            currentTab = tab;
+            ['all','active','done'].forEach(t => {
+                const btn = document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
+                btn.className = (t === tab ? 'tab-active' : 'tab-inactive') + ' text-xs font-bold px-4 py-1.5 rounded-lg transition-all';
+            });
+            renderOrders();
+        }
+
+        // ── Orders render ─────────────────────────────────────────────────────
+        function renderOrders() {
+            let list = allOrders;
+            if (currentTab === 'active')  list = allOrders.filter(o => o.status !== 'Ready' || o.paymentStatus === 'Pending');
+            if (currentTab === 'done')    list = allOrders.filter(o => o.status === 'Ready'  && o.paymentStatus === 'Paid');
+
+            const el = document.getElementById('ordersList');
+
+            if (!list.length) {
+                const msgs = {
+                    all:    ['fa-bag-shopping',   'No orders placed yet.'],
+                    active: ['fa-mug-hot',         'No active orders right now.'],
+                    done:   ['fa-clock-rotate-left','No completed orders yet.']
+                };
+                const [icon, msg] = msgs[currentTab];
+                el.innerHTML = `
+                    <div class="flex flex-col items-center justify-center py-16 text-slate-600 gap-3">
+                        <i class="fa-solid ${icon} text-3xl"></i>
+                        <p class="text-sm font-semibold">${msg}</p>
+                    </div>`;
+                return;
+            }
+
+            el.innerHTML = list.map(orderCard).join('');
+        }
+
+        // ── Single order card ─────────────────────────────────────────────────
+        function orderCard(order) {
+            const isActive = order.status !== 'Ready' || order.paymentStatus === 'Pending';
+
+            const statusCls = { New:'badge-new', Confirmed:'badge-confirmed', Ready:'badge-ready' }[order.status] || 'badge-new';
+            const statusIcon= { New:'fa-clock',  Confirmed:'fa-check',        Ready:'fa-bell'    }[order.status] || 'fa-clock';
+            const payCls    = order.paymentStatus === 'Paid' ? 'badge-paid' : 'badge-pending';
+            const payIcon   = order.paymentStatus === 'Paid' ? 'fa-circle-check' : 'fa-hourglass-half';
+
+            const itemsHtml = order.items.map(i => `
+                <span class="inline-flex items-center gap-1 bg-slate-800 border border-slate-700 text-slate-300 text-[11px] font-semibold px-2.5 py-1 rounded-lg">
+                    ${i.name} <span class="text-emerald-400 font-black">×${i.qty}</span>
+                </span>`).join('');
+
+            const tokenHtml = (order.paymentStatus === 'Paid' && order.token) ? `
+                <div class="flex items-center gap-3 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl px-4 py-3 mt-1">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-ticket text-emerald-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Pickup Token</p>
+                        <p class="text-2xl font-black text-emerald-300 tracking-[0.2em]">${order.token}</p>
+                    </div>
+                    <p class="ml-auto text-[10px] text-slate-500 font-semibold text-right leading-tight">Show this<br>at counter</p>
+                </div>` : '';
+
+            const pendingPayHtml = order.paymentStatus === 'Pending' ? `
+                <a href="/success.html?id=${order._id}"
+                   class="inline-flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/15 border border-amber-500/25 text-amber-400 text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                    Awaiting Verification — Track Status
+                    <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </a>` : '';
+
+            const trackerHtml = buildTracker(order.status);
+
+            return `
+            <div class="p-4 rounded-2xl hover:bg-slate-800/30 transition-all space-y-4 my-1">
+
+                <!-- Top row -->
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-white font-black text-base">${order.orderId}</span>
+                            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg ${statusCls}">
+                                <i class="fa-solid ${statusIcon} text-[9px]"></i>${order.status}
+                            </span>
+                            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg ${payCls}">
+                                <i class="fa-solid ${payIcon} text-[9px]"></i>${order.paymentStatus}
+                            </span>
+                        </div>
+                        <p class="text-xs text-slate-500">${fmt(order.createdAt)}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xl font-black text-emerald-400">₹${order.total}</p>
+                        <p class="text-[11px] text-slate-500">${order.items.reduce((s,i)=>s+i.qty,0)} item(s)</p>
+                    </div>
+                </div>
+
+                <!-- Items chips -->
+                <div class="flex flex-wrap gap-1.5">${itemsHtml}</div>
+
+                <!-- Tracker (always shown) -->
+                ${trackerHtml}
+
+                <!-- Token -->
+                ${tokenHtml}
+
+                <!-- Pending payment CTA -->
+                ${pendingPayHtml}
+
+            </div>`;
+        }
+
+        // ── Status tracker ────────────────────────────────────────────────────
+        function buildTracker(status) {
+            const steps  = ['New', 'Confirmed', 'Ready'];
+            const labels = ['Order Placed', 'Confirmed', 'Ready for Pickup'];
+            const icons  = ['fa-bag-shopping', 'fa-check', 'fa-bell'];
+            const idx    = steps.indexOf(status);
+
+            const stepsHtml = steps.map((s, i) => {
+                const done    = i < idx;
+                const active  = i === idx;
+                const idle    = i > idx;
+                const dotCls  = done ? 'step-done' : active ? 'step-active pulse-ring' : 'step-idle';
+                const lblCls  = done || active ? 'text-emerald-400' : 'text-slate-600';
+                const lineCls = i < steps.length - 1 ? (i < idx ? 'line-done' : 'line-idle') : '';
+
+                return `
+                <div class="flex items-center ${i < steps.length-1 ? 'flex-1' : ''}">
+                    <div class="flex flex-col items-center gap-1.5">
+                        <div class="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs transition-all ${dotCls}">
+                            <i class="fa-solid ${icons[i]}"></i>
+                        </div>
+                        <span class="text-[10px] font-bold text-center whitespace-nowrap ${lblCls}">${labels[i]}</span>
+                    </div>
+                    ${i < steps.length-1 ? `<div class="flex-1 h-0.5 mx-2 mb-4 rounded-full ${lineCls}"></div>` : ''}
+                </div>`;
+            }).join('');
+
+            return `<div class="flex items-start pt-1">${stepsHtml}</div>`;
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────────────
+        function fmt(date) {
+            return new Date(date).toLocaleString('en-IN', {
+                day:'2-digit', month:'short', year:'numeric',
+                hour:'2-digit', minute:'2-digit'
+            });
+        }
+
+        // ── Polling ───────────────────────────────────────────────────────────
+        function startPolling() {
+            clearInterval(pollTimer);
+            pollTimer = setInterval(async () => {
+                const hasActive = allOrders.some(o => o.status !== 'Ready' || o.paymentStatus === 'Pending');
+                if (!hasActive) { clearInterval(pollTimer); return; }
+                await fetchOrders();
+            }, 6000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

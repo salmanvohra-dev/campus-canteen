@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canteen Special – SmartBite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        /* Updated to Light/White Glass theme */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(220, 38, 38, 0.15);
+        }
+        .glass-card { background: #ffffff; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen pb-28">
+
+    <!-- Made the background image much lighter -->
+    <div class="fixed inset-0 pointer-events-none z-0 bg-cover bg-center opacity-[0.03]"
+         style="background-image: url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1920&q=80');"></div>
+
+    <div class="relative z-10 max-w-4xl mx-auto p-4 md:p-8 space-y-6">
+
+        <!-- Header -->
+        <header class="flex items-center gap-4 glass-panel p-4 md:p-5 rounded-3xl shadow-sm">
+            <button onclick="goBack()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white hover:bg-red-50 border border-red-100 text-red-600 transition-all shadow-sm">
+                <i class="fa-solid fa-arrow-left text-sm"></i>
+            </button>
+            <div class="w-10 h-10 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-md shadow-red-200">
+                <i class="fa-solid fa-fire text-base"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-black text-gray-900">Canteen Special</h1>
+                <p class="text-xs text-gray-500 font-semibold">Today's handpicked chef favourites</p>
+            </div>
+            <span class="ml-auto text-xs text-red-600 bg-red-100 px-3.5 py-1.5 rounded-full border border-red-200 font-bold">Canteen Open</span>
+        </header>
+
+        <!-- Special Items Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6" id="specialGrid"></div>
+
+        <!-- Divider -->
+        <div class="flex items-center gap-3 pt-2">
+            <div class="flex-1 h-px bg-red-100"></div>
+            <span class="text-xs text-gray-400 font-bold uppercase tracking-widest">Also try from full menu</span>
+            <div class="flex-1 h-px bg-red-100"></div>
+        </div>
+
+        <!-- Browse Full Menu Button -->
+        <button onclick="goToMenu()" class="w-full glass-panel hover:bg-red-50 text-red-700 font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 text-sm border border-red-200 shadow-sm">
+            <i class="fa-solid fa-th-large text-red-600"></i>
+            Browse Full Menu
+            <i class="fa-solid fa-arrow-right text-xs text-red-400"></i>
+        </button>
+    </div>
+
+    <!-- Floating Cart Bar (Red theme) -->
+    <div id="floatingCartBar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-2xl bg-red-600/95 backdrop-blur-xl border border-red-500/40 p-4 rounded-3xl shadow-2xl shadow-red-600/30 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-white/20 text-white rounded-2xl flex items-center justify-center font-black text-lg">
+                <i class="fa-solid fa-bag-shopping"></i>
+            </div>
+            <div>
+                <div class="text-white font-black text-base flex items-center gap-2">
+                    <span id="popupCount">0 Items</span> • <span id="popupTotal">₹0</span>
+                </div>
+                <p class="text-[11px] text-red-100 font-medium">Tap to checkout</p>
+            </div>
+        </div>
+        <button onclick="goToCheckout()" class="bg-white hover:bg-slate-50 text-red-800 font-extrabold px-6 py-3 rounded-2xl text-xs transition-all shadow-lg active:scale-95 flex items-center gap-2">
+            <span>View Cart & Pay</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+    </div>
+
+    <script>
+        const specialItems = [
+            { id: 101, name: 'Chef Special Thali',    price: 120, category: 'South Indian', rating: 4.9, isVeg: true, image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?auto=format&fit=crop&w=500&q=80', badge: '🏆 Chef Pick' },
+            { id: 102, name: 'Loaded Masala Maggi',   price: 45,  category: 'Snacks',       rating: 4.8, isVeg: true, image: 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?auto=format&fit=crop&w=500&q=80', badge: '🔥 Today Only' }
+        ];
+
+        let cart = JSON.parse(sessionStorage.getItem('cart') || '{}');
+        const studentName = new URLSearchParams(location.search).get('name') || sessionStorage.getItem('studentName') || '';
+
+        function renderSpecials() {
+            document.getElementById('specialGrid').innerHTML = specialItems.map(item => {
+                const inCart = cart[item.id];
+                return `
+                <div class="glass-card rounded-2xl border border-red-200 hover:border-red-400 hover:shadow-xl transition-all overflow-hidden flex flex-col relative">
+                    <div class="absolute top-2 left-2 z-10 bg-red-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow">${item.badge}</div>
+                    <div class="relative h-52 overflow-hidden">
+                        <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover hover:scale-105 transition-all duration-300">
+                        <span class="absolute top-2 right-2 bg-white/90 backdrop-blur-md text-gray-800 text-xs px-2 py-0.5 rounded-md font-bold flex items-center gap-1 border border-gray-200 shadow-sm">
+                            <i class="fa-solid fa-star text-[10px] text-amber-500"></i> ${item.rating}
+                        </span>
+                    </div>
+                    <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
+                        <div>
+                            <div class="text-[11px] text-red-600 font-extrabold tracking-wider uppercase">${item.category}</div>
+                            <h4 class="font-bold text-gray-900 text-lg leading-snug">${item.name}</h4>
+                            <p class="text-gray-500 text-xs mt-1">Limited time special — freshly prepared daily by our chef.</p>
+                        </div>
+                        <div class="flex justify-between items-center pt-3 border-t border-gray-100">
+                            <p class="text-gray-900 font-black text-2xl">₹${item.price}</p>
+                            ${inCart
+                                ? `<div class="flex items-center gap-3">
+                                    <button onclick="updateQty(${item.id},-1)" class="w-8 h-8 rounded-xl bg-gray-100 hover:bg-red-100 text-gray-700 font-bold flex items-center justify-center transition-all text-lg">−</button>
+                                    <span class="font-black text-gray-900 text-base w-6 text-center">${inCart.qty}</span>
+                                    <button onclick="updateQty(${item.id},1)" class="w-8 h-8 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-bold flex items-center justify-center transition-all text-lg">+</button>
+                                   </div>`
+                                : `<button onclick="addToCart(${item.id})" class="bg-red-50 hover:bg-red-600 text-red-700 hover:text-white px-6 py-2.5 rounded-xl border border-red-100 transition-all font-bold text-sm shadow-sm active:scale-95">+ Add to Cart</button>`
+                            }
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function addToCart(id) {
+            const item = specialItems.find(f => f.id === id);
+            cart[id] = cart[id] ? { ...cart[id], qty: cart[id].qty + 1 } : { ...item, qty: 1 };
+            saveCart();
+            renderSpecials();
+            updateCartBar();
+        }
+
+        function updateQty(id, delta) {
+            if (!cart[id]) return;
+            cart[id].qty += delta;
+            if (cart[id].qty <= 0) delete cart[id];
+            saveCart();
+            renderSpecials();
+            updateCartBar();
+        }
+
+        function saveCart() {
+            sessionStorage.setItem('cart', JSON.stringify(cart));
+        }
+
+        function updateCartBar() {
+            const keys = Object.keys(cart);
+            const bar = document.getElementById('floatingCartBar');
+            if (!keys.length) { bar.classList.add('hidden'); return; }
+            const total = keys.reduce((s, k) => s + cart[k].price * cart[k].qty, 0);
+            const count = keys.reduce((s, k) => s + cart[k].qty, 0);
+            document.getElementById('popupCount').textContent = `${count} ${count === 1 ? 'Item' : 'Items'}`;
+            document.getElementById('popupTotal').textContent = `₹${total}`;
+            bar.classList.remove('hidden');
+        }
+
+        function goToCheckout() {
+            window.location.href = studentName ? `/?name=${encodeURIComponent(studentName)}` : '/';
+        }
+
+        function goToMenu() {
+            window.location.href = `/menu.html${studentName ? '?name=' + encodeURIComponent(studentName) : ''}`;
+        }
+
+        function goBack() {
+            window.location.href = studentName ? `/?name=${encodeURIComponent(studentName)}` : '/';
+        }
+
+        renderSpecials();
+        updateCartBar();
+    </script>
+</body>
+</html>

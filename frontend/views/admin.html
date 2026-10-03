@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartBite Admin Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .toast { position:fixed;bottom:24px;right:24px;z-index:9999;display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #fecaca;border-left:4px solid #DC2626;border-radius:14px;padding:14px 20px;box-shadow:0 8px 32px rgba(220,38,38,0.15);font-size:13px;font-weight:700;color:#1f2937;transform:translateY(80px);opacity:0;transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1);pointer-events:none; }
+        .toast.show { transform:translateY(0);opacity:1; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+    <div class="max-w-7xl mx-auto p-6">
+        
+        <!-- HEADER -->
+        <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+            <div>
+                <h1 class="text-4xl font-black text-gray-900">SmartBite <span class="text-red-600">Admin</span></h1>
+                <p class="text-gray-500 mt-2">Monitor orders, manage menu stock, and track sales revenue.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Canteen Toggle Switch -->
+                <div class="bg-white border border-gray-200 rounded-2xl px-4 py-2.5 flex items-center gap-3 shadow-sm">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="canteenToggle" class="sr-only peer" onchange="forceCanteen(this.checked ? 'open' : 'close')">
+                        <div class="w-12 h-6 bg-gray-200 rounded-full peer peer-checked:bg-green-500 transition-all duration-300 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all after:duration-300 peer-checked:after:translate-x-6 shadow-inner"></div>
+                    </label>
+                    <span id="canteenStatusLabel" class="text-xs font-black text-red-600">Canteen Closed</span>
+                </div>
+                <a href="/" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold transition-all">
+                    <i class="fa-solid fa-user-graduate"></i> Student Portal
+                </a>
+                <button onclick="sendFunPromo()" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-purple-50 hover:bg-purple-100 text-purple-600 border border-purple-200 font-bold transition-all">
+                    <i class="fa-solid fa-bullhorn"></i> Send Promo
+                </button>
+                <button onclick="sendOfferPromo()" class="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-green-50 hover:bg-green-100 text-green-600 border border-green-200 font-bold transition-all">
+                    <i class="fa-solid fa-tag"></i> Send Offer Blast 🎁
+                </button>
+            </div>
+        </header>
+
+        <!-- VIEW SWITCHER (Orders vs Menu vs Sales) -->
+        <div class="flex gap-2 mb-6 bg-white p-2 rounded-2xl border border-gray-200 shadow-sm w-fit overflow-x-auto">
+            <button id="tabOrders" onclick="switchView('orders')" class="px-6 py-2.5 rounded-xl font-bold text-sm bg-red-50 text-red-600 transition-all whitespace-nowrap">Live Orders</button>
+            <button id="tabMenu" onclick="switchView('menu')" class="px-6 py-2.5 rounded-xl font-bold text-sm text-gray-500 hover:text-gray-900 transition-all whitespace-nowrap">Manage Menu</button>
+            <button id="tabSales" onclick="switchView('sales')" class="px-6 py-2.5 rounded-xl font-bold text-sm text-gray-500 hover:text-gray-900 transition-all whitespace-nowrap"><i class="fa-solid fa-chart-line mr-1"></i> Sales Report</button>
+        </div>
+
+        <!-- ================= ORDERS SECTION ================= -->
+        <div id="ordersSection">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white border border-red-100 rounded-3xl p-5 shadow-sm">
+                    <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-bold">Total Orders</p>
+                    <p id="countTotal" class="text-4xl font-black text-gray-900 mt-4">0</p>
+                </div>
+                <div class="bg-white border border-red-100 rounded-3xl p-5 shadow-sm">
+                    <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-bold">New</p>
+                    <p id="countNew" class="text-4xl font-black text-red-600 mt-4">0</p>
+                </div>
+                <div class="bg-white border border-red-100 rounded-3xl p-5 shadow-sm">
+                    <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-bold">Ready / Confirmed</p>
+                    <p id="countOther" class="text-4xl font-black text-gray-500 mt-4">0</p>
+                </div>
+            </div>
+
+            <div class="bg-white border border-red-100 rounded-3xl p-6 mb-6 shadow-sm">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.2em] text-gray-400 font-bold">Current UPI Receiver</p>
+                        <p id="adminUpiId" class="text-gray-900 text-lg font-bold mt-2">yourupi@bank</p>
+                        <p id="adminMerchantName" class="text-gray-500 text-sm">SmartBite</p>
+                    </div>
+                    <button onclick="toggleUpiForm()" class="px-5 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold transition-all">Update UPI Info</button>
+                </div>
+                <div id="upiConfigForm" class="hidden mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-500 text-xs uppercase tracking-[0.2em] font-bold mb-2">UPI ID</label>
+                        <input id="newUpiId" type="text" class="w-full bg-red-50 border border-red-200 rounded-3xl p-3 text-sm text-gray-900 focus:outline-none focus:border-red-500" placeholder="yourupi@bank">
+                    </div>
+                    <div>
+                        <label class="block text-gray-500 text-xs uppercase tracking-[0.2em] font-bold mb-2">Merchant Name</label>
+                        <input id="newMerchantName" type="text" class="w-full bg-red-50 border border-red-200 rounded-3xl p-3 text-sm text-gray-900 focus:outline-none focus:border-red-500" placeholder="SmartBite">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-gray-500 text-xs uppercase tracking-[0.2em] font-bold mb-2">Payment Note</label>
+                        <input id="newPaymentNote" type="text" class="w-full bg-red-50 border border-red-200 rounded-3xl p-3 text-sm text-gray-900 focus:outline-none focus:border-red-500" placeholder="SmartBite canteen order">
+                    </div>
+                    <div class="md:col-span-2 flex justify-end">
+                        <button onclick="savePaymentInfo()" class="px-5 py-3 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-bold transition-all">Save UPI Info</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="noOrders" class="bg-red-50 border border-red-200 rounded-3xl p-8 text-center">
+                <h2 class="text-2xl font-bold text-gray-900">No orders yet.</h2>
+                <p class="text-gray-500 mt-3">Once a student pays, order details will appear here automatically.</p>
+            </div>
+
+            <div id="ordersTable" class="hidden overflow-x-auto rounded-3xl border border-red-100 bg-white shadow-sm">
+                <table class="min-w-full text-left text-sm">
+                    <thead class="bg-red-50 text-gray-500 uppercase text-xs tracking-[0.2em]">
+                        <tr>
+                            <th class="px-5 py-4">Order ID</th>
+                            <th class="px-5 py-4">Student</th>
+                            <th class="px-5 py-4">Items</th>
+                            <th class="px-5 py-4">Total</th>
+                            <th class="px-5 py-4">Payment</th>
+                            <th class="px-5 py-4">Status</th>
+                            <th class="px-5 py-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersBody" class="divide-y divide-red-50"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ================= MENU MANAGEMENT SECTION ================= -->
+        <div id="menuSection" class="hidden">
+            <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm">
+                <h2 class="text-xl font-black text-gray-900 mb-4">Canteen Menu Stock Control</h2>
+                <p class="text-sm text-gray-500 mb-6">Toggle items here. Out of stock items will instantly disable the "Add to Cart" button for students on the main portal.</p>
+                
+                <div id="adminMenuGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="text-center py-10 col-span-full text-gray-400"><i class="fa-solid fa-spinner animate-spin"></i> Loading menu...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= SALES REPORT SECTION ================= -->
+        <div id="salesSection" class="hidden">
+            <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm mb-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-black text-gray-900">Revenue & Sales Report</h2>
+                        <p class="text-sm text-gray-500 mt-1">Track day-wise earnings, top-selling items, and buyer details.</p>
+                    </div>
+                    
+                    <!-- NEW: Calendar & Date Filter UI -->
+                    <div class="flex flex-col sm:flex-row items-center gap-3">
+                        <select id="salesDateFilter" onchange="handleDateFilterChange()" class="bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-bold text-gray-700 outline-none cursor-pointer focus:border-red-400 transition-all">
+                            <option value="today">Today's Sales</option>
+                            <option value="yesterday">Yesterday's Sales</option>
+                            <option value="last7days">Last 7 Days</option>
+                            <option value="thisMonth">This Month</option>
+                            <option value="lastMonth">Last Month</option>
+                            <option value="all">All Time Sales</option>
+                            <option value="custom">Custom Date Range...</option>
+                        </select>
+                        
+                        <div id="customDateContainer" class="hidden items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-1.5 shadow-sm">
+                            <input type="date" id="customStartDate" class="bg-white border border-gray-200 rounded-lg p-2 text-xs font-bold text-gray-700 outline-none focus:border-red-400">
+                            <span class="text-xs text-gray-400 font-bold">to</span>
+                            <input type="date" id="customEndDate" class="bg-white border border-gray-200 rounded-lg p-2 text-xs font-bold text-gray-700 outline-none focus:border-red-400">
+                            <button onclick="generateSalesReport()" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all shadow-sm">Apply</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sales Summary Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                    <div class="bg-red-50 border border-red-100 rounded-2xl p-5 relative overflow-hidden">
+                        <i class="fa-solid fa-indian-rupee-sign absolute -right-4 -bottom-4 text-7xl text-red-100 opacity-50"></i>
+                        <p class="text-[10px] uppercase tracking-[0.2em] text-red-500 font-bold relative z-10">Total Revenue</p>
+                        <p id="salesTotalRevenue" class="text-4xl font-black text-red-600 mt-2 relative z-10">₹0</p>
+                    </div>
+                    <div class="bg-gray-50 border border-gray-200 rounded-2xl p-5 relative overflow-hidden">
+                        <i class="fa-solid fa-bowl-food absolute -right-2 -bottom-2 text-6xl text-gray-200 opacity-50"></i>
+                        <p class="text-[10px] uppercase tracking-[0.2em] text-gray-500 font-bold relative z-10">Total Items Sold</p>
+                        <p id="salesTotalItems" class="text-4xl font-black text-gray-800 mt-2 relative z-10">0</p>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white border border-red-100 rounded-2xl p-5 shadow-sm">
+                        <h3 class="text-sm font-black text-gray-900 mb-4"><i class="fa-solid fa-chart-line text-red-500 mr-1"></i> Daily Revenue</h3>
+                        <canvas id="revenueChart" height="160"></canvas>
+                    </div>
+                    <div class="bg-white border border-red-100 rounded-2xl p-5 shadow-sm">
+                        <h3 class="text-sm font-black text-gray-900 mb-4"><i class="fa-solid fa-chart-pie text-red-500 mr-1"></i> Top Selling Items</h3>
+                        <div class="mx-auto w-full max-w-[250px] p-2 flex justify-center items-center">
+                            <canvas id="itemChart" height="160"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Item-wise Sales Table -->
+                    <div>
+                        <h3 class="text-lg font-black text-gray-900 mb-3"><i class="fa-solid fa-fire text-red-500 mr-1"></i> Top Selling Items</h3>
+                        <div class="overflow-x-auto rounded-2xl border border-gray-100">
+                            <table class="min-w-full text-left text-sm">
+                                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-[0.2em] font-bold">
+                                    <tr>
+                                        <th class="px-5 py-4">Item Name</th>
+                                        <th class="px-5 py-4 text-center">Qty Sold</th>
+                                        <th class="px-5 py-4 text-right">Revenue</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salesItemBody" class="divide-y divide-gray-50">
+                                    <!-- Items populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Buyer Transactions Table -->
+                    <div>
+                        <h3 class="text-lg font-black text-gray-900 mb-3"><i class="fa-solid fa-users text-blue-500 mr-1"></i> Buyer Transactions</h3>
+                        <div class="overflow-x-auto rounded-2xl border border-gray-100">
+                            <table class="min-w-full text-left text-sm">
+                                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px] tracking-[0.2em] font-bold">
+                                    <tr>
+                                        <th class="px-4 py-4">Student Name</th>
+                                        <th class="px-4 py-4">Order Info</th>
+                                        <th class="px-4 py-4 text-right">Amount Paid</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salesTransactionBody" class="divide-y divide-gray-50">
+                                    <!-- Transactions populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- CANTEEN CLOSE REASON MODAL -->
+    <div id="closeReasonModal" class="hidden fixed inset-0 z-[200] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl border border-red-100 w-full max-w-sm p-7 text-center space-y-4">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-red-50 border border-red-100 text-red-600 mx-auto">
+                <i class="fa-solid fa-store-slash text-2xl"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-black text-gray-900">Canteen Closed!</h3>
+                <p class="text-gray-500 text-sm mt-1">Select a reason to show students:</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="confirmClose('Back in 30 Mins')" class="py-3 px-3 rounded-2xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-sm transition-all">⏱ Back in 30 Mins</button>
+                <button onclick="confirmClose('Back in 1 Hour')" class="py-3 px-3 rounded-2xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-sm transition-all">🕐 Back in 1 Hour</button>
+                <button onclick="confirmClose('Back in 2 Hours')" class="py-3 px-3 rounded-2xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-sm transition-all">🕑 Back in 2 Hours</button>
+                <button onclick="confirmClose('Opens Tomorrow')" class="py-3 px-3 rounded-2xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-sm transition-all">📅 Opens Tomorrow</button>
+            </div>
+            <button onclick="cancelClose()" class="w-full py-3 rounded-2xl bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-sm transition-all border border-gray-200">Cancel</button>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="adminToast" class="toast">
+        <i class="fa-solid fa-envelope-circle-check text-red-600 text-base"></i>
+        <span id="adminToastMsg">Notification Sent!</span>
+    </div>
+
+    <script>
+        let globalOrders = []; // Store all orders globally for sales calculation
+
+        // --- VIEW SWITCHER ---
+        function switchView(view) {
+            const btnOrders = document.getElementById('tabOrders');
+            const btnMenu = document.getElementById('tabMenu');
+            const btnSales = document.getElementById('tabSales');
+            
+            const secOrders = document.getElementById('ordersSection');
+            const secMenu = document.getElementById('menuSection');
+            const secSales = document.getElementById('salesSection');
+
+            // Reset all buttons and sections
+            btnOrders.className = btnMenu.className = btnSales.className = "px-6 py-2.5 rounded-xl font-bold text-sm text-gray-500 hover:text-gray-900 transition-all whitespace-nowrap";
+            secOrders.classList.add('hidden');
+            secMenu.classList.add('hidden');
+            secSales.classList.add('hidden');
+
+            // Activate Selected View
+            if(view === 'orders') {
+                secOrders.classList.remove('hidden');
+                btnOrders.className = "px-6 py-2.5 rounded-xl font-bold text-sm bg-red-50 text-red-600 transition-all whitespace-nowrap shadow-sm";
+                fetchOrders();
+            } else if(view === 'menu') {
+                secMenu.classList.remove('hidden');
+                btnMenu.className = "px-6 py-2.5 rounded-xl font-bold text-sm bg-red-50 text-red-600 transition-all whitespace-nowrap shadow-sm";
+                fetchAdminMenu();
+            } else if(view === 'sales') {
+                secSales.classList.remove('hidden');
+                btnSales.className = "px-6 py-2.5 rounded-xl font-bold text-sm bg-red-50 text-red-600 transition-all whitespace-nowrap shadow-sm";
+                generateSalesReport(); // Calculate and show sales
+            }
+        }
+
+        function showToast(msg, isSuccess = true) {
+            const t = document.getElementById('adminToast');
+            document.getElementById('adminToastMsg').innerText = msg;
+            t.style.borderLeftColor = isSuccess ? '#DC2626' : '#f59e0b';
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3500);
+        }
+
+        // ================= SALES REPORT LOGIC =================
+        
+        // Show/Hide Custom Date Picker based on Dropdown
+        function handleDateFilterChange() {
+            const filter = document.getElementById('salesDateFilter').value;
+            const customContainer = document.getElementById('customDateContainer');
+            
+            if (filter === 'custom') {
+                customContainer.classList.remove('hidden');
+                customContainer.classList.add('flex');
+            } else {
+                customContainer.classList.add('hidden');
+                customContainer.classList.remove('flex');
+                generateSalesReport();
+            }
+        }
+
+        // ================= SALES CHARTS =================
+        let revenueChartInstance = null;
+        let itemChartInstance = null;
+
+        function renderSalesCharts(orders) {
+            const validOrders = orders.filter(o => o.paymentStatus === 'Paid');
+
+            // --- Line Chart: Daily Revenue ---
+            const dayMap = {};
+            validOrders.forEach(o => {
+                const day = new Date(o.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                dayMap[day] = (dayMap[day] || 0) + o.total;
+            });
+            const sortedDays = Object.entries(dayMap).sort((a, b) => new Date(a[0]) - new Date(b[0]));
+            const dayLabels = sortedDays.map(e => e[0]);
+            const dayValues = sortedDays.map(e => e[1]);
+
+            if (revenueChartInstance) revenueChartInstance.destroy();
+            revenueChartInstance = new Chart(document.getElementById('revenueChart'), {
+                type: 'line',
+                data: {
+                    labels: dayLabels,
+                    datasets: [{
+                        label: 'Revenue (₹)',
+                        data: dayValues,
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#3B82F6',
+                        pointRadius: 4,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' }, color: '#9ca3af' } },
+                        y: { grid: { color: '#fef2f2' }, ticks: { font: { size: 10 }, color: '#9ca3af', callback: v => '₹' + v } }
+                    }
+                }
+            });
+
+            // --- Doughnut Chart: Top Items ---
+            const itemMap = {};
+            validOrders.forEach(o => o.items.forEach(i => {
+                itemMap[i.name] = (itemMap[i.name] || 0) + i.qty;
+            }));
+            const sorted = Object.entries(itemMap).sort((a, b) => b[1] - a[1]).slice(0, 7);
+            const itemLabels = sorted.map(e => e[0]);
+            const itemValues = sorted.map(e => e[1]);
+            const palette = ['#DC2626','#ef4444','#f87171','#fca5a5','#fb923c','#fbbf24','#a3e635'];
+
+            if (itemChartInstance) itemChartInstance.destroy();
+            itemChartInstance = new Chart(document.getElementById('itemChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: itemLabels,
+                    datasets: [{
+                        data: itemValues,
+                        backgroundColor: palette,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10, weight: 'bold' }, color: '#6b7280', boxWidth: 10, padding: 10 } }
+                    }
+                }
+            });
+        }
+
+        function generateSalesReport() {
+            const filter = document.getElementById('salesDateFilter').value;
+            const now = new Date();
+            let startDate = new Date(0);
+            let endDate = new Date();
+            endDate.setDate(endDate.getDate() + 1); // Default to tomorrow to include today completely
+
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            // NEW: Advanced Date filtering logic
+            if (filter === 'today') {
+                startDate = startOfToday;
+                endDate = new Date(startOfToday);
+                endDate.setDate(endDate.getDate() + 1);
+            } else if (filter === 'yesterday') {
+                startDate = new Date(startOfToday);
+                startDate.setDate(startDate.getDate() - 1);
+                endDate = new Date(startOfToday);
+            } else if (filter === 'last7days') {
+                startDate = new Date(startOfToday);
+                startDate.setDate(startDate.getDate() - 6);
+                endDate = new Date(startOfToday);
+                endDate.setDate(endDate.getDate() + 1);
+            } else if (filter === 'thisMonth') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = new Date(startOfToday);
+                endDate.setDate(endDate.getDate() + 1);
+            } else if (filter === 'lastMonth') {
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                endDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            } else if (filter === 'custom') {
+                const customStart = document.getElementById('customStartDate').value;
+                const customEnd = document.getElementById('customEndDate').value;
+                
+                if (!customStart || !customEnd) {
+                    showToast('Please select both Start and End dates for Custom Filter', false);
+                    return;
+                }
+                
+                startDate = new Date(customStart);
+                endDate = new Date(customEnd);
+                endDate.setDate(endDate.getDate() + 1); // Full day inclusion
+            } else {
+                // All time
+                startDate = new Date(0);
+                endDate = new Date();
+                endDate.setDate(endDate.getDate() + 1);
+            }
+
+            // Only count orders that are PAID and within the date range
+            const validOrders = globalOrders.filter(o => {
+                const orderDate = new Date(o.createdAt);
+                return o.paymentStatus === 'Paid' && orderDate >= startDate && orderDate < endDate;
+            });
+
+            let totalRev = 0;
+            let totalQty = 0;
+            const itemMap = {};
+
+            // Calculate revenue and group by item name
+            validOrders.forEach(order => {
+                totalRev += order.total;
+                order.items.forEach(item => {
+                    if (!itemMap[item.name]) {
+                        itemMap[item.name] = { qty: 0, revenue: 0 };
+                    }
+                    itemMap[item.name].qty += item.qty;
+                    itemMap[item.name].revenue += (item.price * item.qty);
+                    totalQty += item.qty;
+                });
+            });
+
+            // Update UI Counters
+            document.getElementById('salesTotalRevenue').innerText = `₹${totalRev}`;
+            document.getElementById('salesTotalItems').innerText = totalQty;
+
+            renderSalesCharts(validOrders);
+
+            // Sort items by highest revenue
+            const sortedItems = Object.keys(itemMap).map(k => ({ name: k, ...itemMap[k] })).sort((a, b) => b.revenue - a.revenue);
+            const tbodyItems = document.getElementById('salesItemBody');
+            
+            // Populate Items Table
+            if (sortedItems.length === 0) {
+                tbodyItems.innerHTML = `<tr><td colspan="3" class="px-5 py-10 text-center text-gray-500 font-medium">No sales recorded for this date range.</td></tr>`;
+            } else {
+                tbodyItems.innerHTML = sortedItems.map(item => `
+                    <tr class="hover:bg-gray-50 transition-all">
+                        <td class="px-5 py-3 font-bold text-gray-900">${item.name}</td>
+                        <td class="px-5 py-3 text-center text-gray-700 font-black">${item.qty}</td>
+                        <td class="px-5 py-3 text-right text-red-600 font-black">₹${item.revenue}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Populate Buyer Transactions Table
+            const tbodyTxn = document.getElementById('salesTransactionBody');
+            if (validOrders.length === 0) {
+                tbodyTxn.innerHTML = `<tr><td colspan="3" class="px-5 py-10 text-center text-gray-500 font-medium">No transactions found.</td></tr>`;
+            } else {
+                tbodyTxn.innerHTML = validOrders.map(o => {
+                    const itemsStr = o.items.map(i => `${i.name} (x${i.qty})`).join(', ');
+                    const shortDate = new Date(o.createdAt).toLocaleDateString('en-IN', {day:'numeric', month:'short'});
+                    const shortTime = new Date(o.createdAt).toLocaleTimeString('en-IN', {hour: '2-digit', minute:'2-digit'});
+                    return `
+                        <tr class="hover:bg-gray-50 transition-all">
+                            <td class="px-4 py-3 font-bold text-gray-900 whitespace-nowrap"><i class="fa-solid fa-user-circle text-gray-300 mr-1"></i> ${o.student}</td>
+                            <td class="px-4 py-3">
+                                <div class="text-[10px] font-mono text-gray-400 mb-0.5">ID: ${o.orderId} • ${shortDate}, ${shortTime}</div>
+                                <div class="text-xs text-gray-600 line-clamp-2 max-w-[200px]" title="${itemsStr}">${itemsStr}</div>
+                            </td>
+                            <td class="px-4 py-3 text-right text-green-600 font-black whitespace-nowrap">₹${o.total}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // ================= MENU MANAGEMENT LOGIC =================
+        async function fetchAdminMenu() {
+            try {
+                const res = await fetch('/api/menu');
+                const data = await res.json();
+                if(data.success) {
+                    const allItems = [
+                        ...data.specialItems.map(i => ({...i, type: 'special'})),
+                        ...data.foodItems.map(i => ({...i, type: 'food'}))
+                    ];
+                    renderAdminMenu(allItems);
+                }
+            } catch(e) {
+                console.error("Error fetching menu:", e);
+            }
+        }
+
+        function renderAdminMenu(items) {
+            const grid = document.getElementById('adminMenuGrid');
+            grid.innerHTML = items.map(item => {
+                const stockStyle = item.inStock 
+                    ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                    : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100 opacity-80';
+                const stockIcon = item.inStock ? '<i class="fa-solid fa-check mr-1"></i> In Stock' : '<i class="fa-solid fa-xmark mr-1"></i> Out of Stock';
+
+                return `
+                <div class="border rounded-2xl p-4 flex justify-between items-center bg-gray-50 shadow-sm transition-all">
+                    <div class="flex items-center gap-3">
+                        <img src="${item.image}" class="w-12 h-12 rounded-xl object-cover shadow-sm ${!item.inStock ? 'grayscale' : ''}">
+                        <div>
+                            <p class="font-bold text-sm text-gray-900 leading-tight">${item.name}</p>
+                            <p class="text-[10px] text-gray-500 uppercase tracking-wider font-bold mt-0.5">₹${item.price} • ${item.category}</p>
+                        </div>
+                    </div>
+                    <button onclick="toggleStockStatus(${item.id}, '${item.type}')" class="px-3 py-2 rounded-xl text-[11px] font-black border transition-all ${stockStyle}">
+                        ${stockIcon}
+                    </button>
+                </div>`;
+            }).join('');
+        }
+
+        async function toggleStockStatus(id, type) {
+            try {
+                const res = await fetch('/api/menu/toggle-stock', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, type })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    showToast(data.message);
+                    fetchAdminMenu();
+                } else {
+                    showToast(data.message, false);
+                }
+            } catch(e) {
+                showToast("Failed to update stock", false);
+            }
+        }
+
+        // ================= ORDER MANAGEMENT LOGIC =================
+        function formatDate(iso) { return new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }); }
+
+        function renderAdminSummary(orders) {
+            document.getElementById('countTotal').innerText = orders.length;
+            document.getElementById('countNew').innerText = orders.filter(o => o.status === 'New').length;
+            document.getElementById('countOther').innerText = orders.filter(o => o.status !== 'New').length;
+        }
+
+        function renderAdminTable(orders) {
+            if (orders.length === 0) {
+                document.getElementById('noOrders').classList.remove('hidden');
+                document.getElementById('ordersTable').classList.add('hidden');
+                renderAdminSummary([]);
+                return;
+            }
+            document.getElementById('noOrders').classList.add('hidden');
+            document.getElementById('ordersTable').classList.remove('hidden');
+            renderAdminSummary(orders);
+
+            document.getElementById('ordersBody').innerHTML = orders.map(order => {
+                const itemList = order.items.map(i => `${i.name} ×${i.qty}`).join(', ');
+                const isPaid = order.paymentStatus === 'Paid';
+                const payBadge = isPaid
+                    ? `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-lg"><i class="fa-solid fa-circle-check text-[10px]"></i> Paid</span>`
+                    : `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg"><i class="fa-solid fa-clock text-[10px]"></i> Pending</span>`;
+                const txnHtml = order.upiTransactionId ? `<div class="text-[10px] text-gray-400 mt-1 font-mono">TXN: ${order.upiTransactionId}</div>` : '';
+                const verifyBtn = !isPaid ? `<button onclick="verifyPayment('${order._id}')" class="rounded-xl px-3 py-1.5 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white transition-all flex items-center gap-1"><i class="fa-solid fa-check"></i> Verify Pay</button>` : '';
+                const statusColor = { New:'text-blue-600', Confirmed:'text-violet-600', Ready:'text-green-600', Completed:'text-gray-400' }[order.status] || 'text-gray-500';
+                
+                let actionBtn = '';
+                if (order.status === 'New' && isPaid) actionBtn = `<button onclick="updateStatusAndNotify('${order._id}','Confirmed',this)" class="rounded-xl px-3 py-1.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white transition-all flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> Accept &amp; Confirm</button>`;
+                else if (order.status === 'Confirmed') actionBtn = `<button onclick="updateStatusAndNotify('${order._id}','Ready',this)" class="rounded-xl px-3 py-1.5 text-xs font-bold bg-violet-600 hover:bg-violet-700 text-white transition-all flex items-center gap-1"><i class="fa-solid fa-bell"></i> Mark Ready</button>`;
+                else if (order.status === 'Ready') actionBtn = `<button onclick="updateStatusAndNotify('${order._id}','Completed',this)" class="rounded-xl px-3 py-1.5 text-xs font-bold bg-green-600 hover:bg-green-700 text-white transition-all flex items-center gap-1"><i class="fa-solid fa-flag-checkered"></i> Done</button>`;
+                else if (order.status === 'Completed') actionBtn = `<span class="text-xs text-gray-400 font-bold flex items-center gap-1"><i class="fa-solid fa-check-double"></i> Completed</span>`;
+                else if (!isPaid) actionBtn = `<span class="text-xs text-gray-400 font-bold">Pay first</span>`;
+
+                return `<tr class="hover:bg-red-50/50 transition-all">
+                    <td class="px-5 py-4"><div class="font-bold text-gray-900">${order.orderId}</div><div class="text-[10px] text-gray-400">${formatDate(order.createdAt)}</div></td>
+                    <td class="px-5 py-4 text-gray-700 font-semibold">${order.student}</td>
+                    <td class="px-5 py-4 text-gray-500 text-xs max-w-[200px]">${itemList}</td>
+                    <td class="px-5 py-4 text-red-600 font-black">₹${order.total}</td>
+                    <td class="px-5 py-4">${payBadge}${txnHtml}</td>
+                    <td class="px-5 py-4 font-bold ${statusColor}">${order.status}</td>
+                    <td class="px-5 py-4"><div class="flex flex-col gap-2">${verifyBtn}${actionBtn}</div></td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function updateStatusAndNotify(orderId, status, btn) {
+            const original = btn.innerHTML;
+            btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Sending...'; btn.classList.add('opacity-70', 'cursor-not-allowed');
+            try {
+                const res = await fetch('/api/orders/update-status-and-notify', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId, status })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                showToast(data.emailSent ? `✅ ${status} — 📧 Email sent!` : `✅ ${status} — Status updated.`);
+                fetchOrders();
+            } catch (err) {
+                btn.disabled = false; btn.innerHTML = original; btn.classList.remove('opacity-70', 'cursor-not-allowed');
+                showToast(err.message || 'Action failed.', false);
+            }
+        }
+
+        async function verifyPayment(orderId) {
+            try {
+                const res = await fetch(`/api/orders/${orderId}/verify-payment`, { method: 'PATCH' });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                showToast('✅ Payment verified!'); fetchOrders();
+            } catch (err) { showToast(err.message || 'Failed to verify payment.', false); }
+        }
+
+        async function fetchOrders() {
+            try {
+                const res = await fetch('/api/orders'); const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                
+                globalOrders = data.orders; // Save to global scope for sales calculation
+                
+                renderAdminTable(data.orders);
+
+                // Update sales report dynamically if user is on that tab
+                if (!document.getElementById('salesSection').classList.contains('hidden')) {
+                    generateSalesReport();
+                }
+
+            } catch (err) { console.error(err); }
+        }
+
+        async function fetchPaymentInfoAdmin() {
+            try {
+                const res = await fetch('/api/payment-info'); const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                document.getElementById('adminUpiId').innerText = data.paymentInfo.upiId;
+                document.getElementById('adminMerchantName').innerText = data.paymentInfo.merchantName;
+                document.getElementById('newUpiId').value = data.paymentInfo.upiId;
+                document.getElementById('newMerchantName').value = data.paymentInfo.merchantName;
+                document.getElementById('newPaymentNote').value = data.paymentInfo.note;
+            } catch (err) { console.error(err); }
+        }
+
+        function toggleUpiForm() { document.getElementById('upiConfigForm').classList.toggle('hidden'); }
+
+        async function savePaymentInfo() {
+            try {
+                const upiId = document.getElementById('newUpiId').value.trim();
+                const merchantName = document.getElementById('newMerchantName').value.trim();
+                const note = document.getElementById('newPaymentNote').value.trim();
+                const res = await fetch('/api/payment-info', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ upiId, merchantName, note })
+                });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                document.getElementById('adminUpiId').innerText = data.paymentInfo.upiId;
+                document.getElementById('adminMerchantName').innerText = data.paymentInfo.merchantName;
+                showToast('✅ UPI details updated!');
+            } catch (err) { showToast(err.message || 'Failed to update UPI details.', false); }
+        }
+
+        async function sendOfferPromo() {
+            if (!confirm('Blast discount offer email to all students?')) return;
+            try {
+                const res = await fetch('/api/admin/broadcast-offer', { method: 'POST' });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                showToast(`🎁 ${data.message}`);
+            } catch (err) {
+                showToast(err.message || 'Failed to send offer.', false);
+            }
+        }
+
+        async function sendFunPromo() {
+            if (!confirm('Send a random fun promo email to ALL registered students?')) return;
+            try {
+                const res = await fetch('/api/admin/broadcast-promo', { method: 'POST' });
+                const data = await res.json();
+                if (!data.success) throw new Error(data.message);
+                showToast(`📣 ${data.message} — "${data.subject}"`);
+            } catch (err) {
+                showToast(err.message || 'Failed to send promo.', false);
+            }
+        }
+
+        // ================= CANTEEN STATUS CONTROL =================
+        function forceCanteen(state) {
+            if (state === 'close') {
+                // Revert toggle visually until user picks a reason
+                document.getElementById('canteenToggle').checked = true;
+                document.getElementById('closeReasonModal').classList.remove('hidden');
+            } else {
+                applyCanteenState('open', '');
+            }
+        }
+
+        async function confirmClose(message) {
+            document.getElementById('closeReasonModal').classList.add('hidden');
+            await applyCanteenState('close', message);
+        }
+
+        function cancelClose() {
+            document.getElementById('closeReasonModal').classList.add('hidden');
+            // Keep toggle ON since admin cancelled
+            document.getElementById('canteenToggle').checked = true;
+        }
+
+        async function applyCanteenState(state, message) {
+            try {
+                await fetch('/api/canteen-status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ state, message })
+                });
+                const isOpen = state === 'open';
+                document.getElementById('canteenToggle').checked = isOpen;
+                const label = document.getElementById('canteenStatusLabel');
+                label.innerText = isOpen ? 'Canteen Open' : 'Canteen Closed';
+                label.className = isOpen ? 'text-xs font-black text-green-600' : 'text-xs font-black text-red-600';
+                showToast(isOpen ? '✅ Canteen is now Open!' : `🔴 Canteen Closed — ${message}`);
+            } catch (err) {
+                showToast('Failed to update canteen status', false);
+            }
+        }
+
+        async function fetchCanteenStatus() {
+            try {
+                const res = await fetch('/api/canteen-status');
+                const data = await res.json();
+                const isOpen = data.override === true;
+                document.getElementById('canteenToggle').checked = isOpen;
+                const label = document.getElementById('canteenStatusLabel');
+                label.innerText = isOpen ? 'Canteen Open' : 'Canteen Closed';
+                label.className = isOpen ? 'text-xs font-black text-green-600' : 'text-xs font-black text-red-600';
+            } catch(e) {}
+        }
+
+        window.addEventListener('load', () => { 
+            fetchOrders(); 
+            fetchPaymentInfoAdmin(); 
+            fetchCanteenStatus();
+            setInterval(fetchOrders, 5000); // 5 sec auto refresh for orders
+        });
+    </script>
+</body>
+</html>

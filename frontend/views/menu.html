@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Categories – SmartBite</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        /* Updated to Light/White Glass theme */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(220, 38, 38, 0.15); /* Soft red border */
+        }
+        .glass-card { background: #ffffff; }
+        
+        /* Updated Category Buttons to Red/White Theme */
+        .cat-btn {
+            background: #fef2f2; /* red-50 */
+            border: 1px solid #fee2e2; /* red-100 */
+            color: #b91c1c; /* red-700 */
+            padding: 0.625rem 1.25rem;
+            border-radius: 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            transition: all 0.15s;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+        .cat-btn:hover {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .cat-btn.active {
+            background: #dc2626; /* red-600 */
+            color: white;
+            border-color: #dc2626;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
+        }
+    </style>
+</head>
+<!-- Changed background to very light gray/white -->
+<body class="bg-slate-50 text-slate-900 min-h-screen pb-28">
+
+    <!-- Made the background image much lighter/subtle so text is readable -->
+    <div class="fixed inset-0 pointer-events-none z-0 bg-cover bg-center opacity-[0.03]"
+         style="background-image: url('https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=1920&q=80');"></div>
+
+    <div class="relative z-10 max-w-7xl mx-auto p-4 md:p-8 space-y-6">
+
+        <!-- Header -->
+        <header class="flex items-center gap-4 glass-panel p-4 md:p-5 rounded-3xl shadow-sm">
+            <button onclick="goBack()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white hover:bg-red-50 border border-red-100 text-red-600 transition-all shadow-sm">
+                <i class="fa-solid fa-arrow-left text-sm"></i>
+            </button>
+            <div class="w-10 h-10 bg-red-600 text-white rounded-2xl flex items-center justify-center shadow-md shadow-red-200">
+                <i class="fa-solid fa-th-large text-base"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-black text-gray-900">Menu Categories</h1>
+                <p class="text-xs text-gray-500 font-semibold">Browse all items by category</p>
+            </div>
+        </header>
+
+        <!-- Search + Category Pills -->
+        <div class="glass-panel p-4 rounded-3xl shadow-sm space-y-3">
+            <div class="relative">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-red-400 text-sm"></i>
+                <input type="text" id="searchInput" oninput="renderMenu()" placeholder="Search food items..." class="w-full bg-red-50/50 border border-red-100 rounded-2xl pl-11 pr-4 py-3 text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:border-red-500 focus:bg-white transition-all">
+            </div>
+            <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                <button data-cat="All" onclick="setCategory('All')" class="cat-btn active">All Items</button>
+                <button data-cat="Snacks" onclick="setCategory('Snacks')" class="cat-btn">Snacks</button>
+                <button data-cat="South Indian" onclick="setCategory('South Indian')" class="cat-btn">South Indian</button>
+                <button data-cat="Beverages" onclick="setCategory('Beverages')" class="cat-btn">Beverages</button>
+                <button data-cat="Quick Bites" onclick="setCategory('Quick Bites')" class="cat-btn">Quick Bites</button>
+            </div>
+        </div>
+
+        <!-- Menu Heading -->
+        <div class="flex items-center gap-2 pt-1">
+            <i class="fa-solid fa-bowl-food text-red-600"></i>
+            <h2 class="text-xl font-black text-gray-900" id="menuHeading">All Items</h2>
+            <span class="text-xs text-gray-500 font-semibold" id="itemCount"></span>
+        </div>
+
+        <!-- Food Grid -->
+        <div id="foodGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    </div>
+
+    <!-- Floating Cart Bar (Red theme) -->
+    <div id="floatingCartBar" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-2xl bg-red-600/95 backdrop-blur-xl border border-red-500/40 p-4 rounded-3xl shadow-2xl shadow-red-600/30 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-white/20 text-white rounded-2xl flex items-center justify-center font-black text-lg">
+                <i class="fa-solid fa-bag-shopping"></i>
+            </div>
+            <div>
+                <div class="text-white font-black text-base flex items-center gap-2">
+                    <span id="popupCount">0 Items</span> • <span id="popupTotal">₹0</span>
+                </div>
+                <p class="text-[11px] text-red-100 font-medium">Tap to checkout</p>
+            </div>
+        </div>
+        <button onclick="goToCheckout()" class="bg-white hover:bg-slate-50 text-red-800 font-extrabold px-6 py-3 rounded-2xl text-xs transition-all shadow-lg active:scale-95 flex items-center gap-2">
+            <span>View Cart & Pay</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+        </button>
+    </div>
+
+    <script>
+        const foodItems = [
+            { id: 1,  name: 'Paneer Cheese Frankie',        price: 70,  category: 'Snacks',       rating: 4.6, image: './images/frankie.jpg' },
+            { id: 2,  name: 'Masala Dosa',                  price: 50,  category: 'South Indian', rating: 4.7, image: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=500&q=80' },
+            { id: 3,  name: 'Steam Idli Sambhar (4 Pcs)',   price: 40,  category: 'South Indian', rating: 4.8, image: './images/idli.jpg' },
+            { id: 4,  name: 'Crispy Medu Vada (4 Pcs)',     price: 45,  category: 'South Indian', rating: 4.9, image: './images/meduwada.jpg' },
+            { id: 5,  name: 'Veg Cheese Grill Sandwich',    price: 70,  category: 'Snacks',       rating: 4.6, image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=500&q=80' },
+            { id: 6,  name: 'Mumbai Vadapav (1 Pcs)',        price: 20,  category: 'Quick Bites',  rating: 4.9, image: './images/vadapav.jpg' },
+            { id: 7,  name: 'Veg Schezwan Hakka Noodles',   price: 80,  category: 'Quick Bites',  rating: 4.5, image: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=500&q=80' },
+            { id: 8,  name: 'Special Veg Dum Biryani',      price: 90,  category: 'South Indian', rating: 4.8, image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=500&q=80' },
+            { id: 9,  name: 'Hot Indori Poha',               price: 25,  category: 'Snacks',       rating: 4.8, image: './images/poha.jpg' },
+            { id: 10, name: 'Samosa Pav (1 Pcs)',            price: 20,  category: 'Quick Bites',  rating: 4.7, image: './images/samosapav.jpg' },
+            { id: 11, name: 'Cold Coffee with Ice Cream',    price: 40,  category: 'Beverages',    rating: 4.9, image: 'https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=500&q=80' },
+            { id: 12, name: 'Coca Cola (500ml)',             price: 40,  category: 'Beverages',    rating: 4.8, image: './images/cocacola.jpg' },
+            { id: 13, name: 'Sprite (500ml)',                price: 40,  category: 'Beverages',    rating: 4.5, image: './images/sprite.jpg' },
+            { id: 14, name: 'Cutting Chai / Coffee',         price: 15,  category: 'Beverages',    rating: 4.6, image: './images/teaandcoffee.jpg' },
+            { id: 15, name: 'Crispy Veg Burger',             price: 55,  category: 'Quick Bites',  rating: 4.6, image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=500&q=80' },
+            { id: 16, name: 'Cheese Garlic Bread',           price: 65,  category: 'Snacks',       rating: 4.7, image: './images/cheesegarlicbread.jpg' },
+            { id: 17, name: 'Peri Peri French Fries',        price: 60,  category: 'Quick Bites',  rating: 4.8, image: './images/frenchfries.jpg' },
+            { id: 18, name: 'Mysore Masala Dosa',            price: 65,  category: 'South Indian', rating: 4.9, image: 'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=500&q=80' },
+            { id: 19, name: 'Oreo Thick Shake',              price: 50,  category: 'Beverages',    rating: 4.9, image: 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?auto=format&fit=crop&w=500&q=80' },
+            { id: 20, name: 'Manchurian',                    price: 25,  category: 'Quick Bites',  rating: 4.6, image: './images/manchurian.jpg' },
+            { id: 21, name: 'Aloo Tikki Chaat',              price: 35,  category: 'Snacks',       rating: 4.7, image: 'https://images.unsplash.com/photo-1606491956689-2ea866880c84?auto=format&fit=crop&w=500&q=80' },
+            { id: 22, name: 'Bread Pakora (2 Pcs)',           price: 30,  category: 'Snacks',       rating: 4.5, image: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=500&q=80' },
+            { id: 23, name: 'Corn Cheese Toast',              price: 55,  category: 'Snacks',       rating: 4.6, image: 'https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&w=500&q=80' },
+            { id: 24, name: 'Masala Papad',                   price: 20,  category: 'Snacks',       rating: 4.4, image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=500&q=80' },
+            { id: 25, name: 'Veg Spring Rolls (4 Pcs)',       price: 60,  category: 'Snacks',       rating: 4.7, image: 'https://images.unsplash.com/photo-1548507769-f8a5b1e3e3e3?auto=format&fit=crop&w=500&q=80' },
+            { id: 26, name: 'Rava Dosa',                      price: 60,  category: 'South Indian', rating: 4.8, image: 'https://images.unsplash.com/photo-1630383249896-424e482df921?auto=format&fit=crop&w=500&q=80' },
+            { id: 27, name: 'Uttapam with Chutney',           price: 55,  category: 'South Indian', rating: 4.6, image: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=500&q=80' },
+            { id: 28, name: 'Curd Rice',                      price: 45,  category: 'South Indian', rating: 4.5, image: 'https://images.unsplash.com/photo-1596797038530-2c107229654b?auto=format&fit=crop&w=500&q=80' },
+            { id: 29, name: 'Pongal with Sambar',             price: 50,  category: 'South Indian', rating: 4.7, image: 'https://images.unsplash.com/photo-1567337710282-00832b415979?auto=format&fit=crop&w=500&q=80' },
+            { id: 30, name: 'Coconut Chutney Dosa',           price: 55,  category: 'South Indian', rating: 4.8, image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=500&q=80' },
+            { id: 31, name: 'Mango Lassi',                    price: 45,  category: 'Beverages',    rating: 4.9, image: 'https://images.unsplash.com/photo-1553361371-9b22f78e8b1d?auto=format&fit=crop&w=500&q=80' },
+            { id: 32, name: 'Fresh Lime Soda',                price: 25,  category: 'Beverages',    rating: 4.6, image: 'https://images.unsplash.com/photo-1621263764928-df1444c5e859?auto=format&fit=crop&w=500&q=80' },
+            { id: 33, name: 'Masala Chaas',                   price: 20,  category: 'Beverages',    rating: 4.5, image: 'https://images.unsplash.com/photo-1571091718767-18b5b1457add?auto=format&fit=crop&w=500&q=80' },
+            { id: 34, name: 'Strawberry Milkshake',           price: 55,  category: 'Beverages',    rating: 4.8, image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=500&q=80' },
+            { id: 35, name: 'Green Apple Juice',              price: 40,  category: 'Beverages',    rating: 4.7, image: 'https://images.unsplash.com/photo-1610970881699-44a5587cabec?auto=format&fit=crop&w=500&q=80' },
+            { id: 36, name: 'Paneer Tikka Roll',              price: 75,  category: 'Quick Bites',  rating: 4.8, image: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?auto=format&fit=crop&w=500&q=80' },
+            { id: 37, name: 'Veg Hot Dog',                    price: 45,  category: 'Quick Bites',  rating: 4.5, image: 'https://images.unsplash.com/photo-1612392062631-94b7f959c2e4?auto=format&fit=crop&w=500&q=80' },
+            { id: 38, name: 'Cheese Corn Pizza Slice',        price: 65,  category: 'Quick Bites',  rating: 4.7, image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?auto=format&fit=crop&w=500&q=80' },
+            { id: 39, name: 'Masala Maggi',                   price: 30,  category: 'Quick Bites',  rating: 4.6, image: 'https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?auto=format&fit=crop&w=500&q=80' },
+            { id: 40, name: 'Aloo Paratha with Curd',         price: 50,  category: 'Quick Bites',  rating: 4.8, image: 'https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=500&q=80' }
+        ];
+
+        let cart = JSON.parse(sessionStorage.getItem('cart') || '{}');
+        let activeCategory = 'All';
+        const studentName = new URLSearchParams(location.search).get('name') || sessionStorage.getItem('studentName') || '';
+
+        function setCategory(cat) {
+            activeCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.cat === cat);
+            });
+            document.getElementById('menuHeading').textContent = cat === 'All' ? 'All Items' : cat;
+            renderMenu();
+        }
+
+        function renderMenu() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = foodItems.filter(item =>
+                (activeCategory === 'All' || item.category === activeCategory) &&
+                item.name.toLowerCase().includes(search)
+            );
+            document.getElementById('itemCount').textContent = `(${filtered.length} items)`;
+            const grid = document.getElementById('foodGrid');
+            if (!filtered.length) {
+                grid.innerHTML = `<div class="col-span-full text-center py-10 text-gray-500 font-semibold text-sm">No items found.</div>`;
+                return;
+            }
+            grid.innerHTML = filtered.map(item => {
+                const inCart = cart[item.id];
+                return `
+                <div class="glass-card rounded-2xl border border-red-100 hover:border-red-400 hover:shadow-xl transition-all overflow-hidden flex flex-col justify-between">
+                    <div class="relative h-40 overflow-hidden">
+                        <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover hover:scale-105 transition-all duration-300">
+                        <span class="absolute top-2 left-2 bg-white/90 backdrop-blur-md text-gray-800 text-[10px] px-2 py-0.5 rounded-md font-bold flex items-center gap-1 border border-gray-200 shadow-sm">
+                            <i class="fa-solid fa-circle text-[8px] text-green-600"></i> Veg
+                        </span>
+                        <span class="absolute top-2 right-2 bg-white/90 backdrop-blur-md text-gray-800 text-xs px-2 py-0.5 rounded-md font-bold flex items-center gap-1 border border-gray-200 shadow-sm">
+                            <i class="fa-solid fa-star text-[10px] text-amber-500"></i> ${item.rating}
+                        </span>
+                    </div>
+                    <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
+                        <div>
+                            <div class="text-[11px] text-red-600 font-extrabold tracking-wider uppercase">${item.category}</div>
+                            <h4 class="font-bold text-gray-900 text-base leading-snug">${item.name}</h4>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+                            <p class="text-gray-900 font-black text-lg">₹${item.price}</p>
+                            ${inCart
+                                ? `<div class="flex items-center gap-2">
+                                    <button onclick="updateQty(${item.id},-1)" class="w-7 h-7 rounded-lg bg-gray-100 hover:bg-red-100 text-gray-700 font-bold flex items-center justify-center transition-all">−</button>
+                                    <span class="font-black text-gray-900 text-sm w-5 text-center">${inCart.qty}</span>
+                                    <button onclick="updateQty(${item.id},1)" class="w-7 h-7 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-bold flex items-center justify-center transition-all">+</button>
+                                   </div>`
+                                : `<button onclick="addToCart(${item.id})" class="bg-red-50 hover:bg-red-600 text-red-700 hover:text-white px-5 py-2 rounded-xl border border-red-100 transition-all font-bold text-xs shadow-sm active:scale-95">+ Add</button>`
+                            }
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function addToCart(id) {
+            const item = foodItems.find(f => f.id === id);
+            cart[id] = cart[id] ? { ...cart[id], qty: cart[id].qty + 1 } : { ...item, qty: 1 };
+            saveCart();
+            renderMenu();
+            updateCartBar();
+        }
+
+        function updateQty(id, delta) {
+            if (!cart[id]) return;
+            cart[id].qty += delta;
+            if (cart[id].qty <= 0) delete cart[id];
+            saveCart();
+            renderMenu();
+            updateCartBar();
+        }
+
+        function saveCart() {
+            sessionStorage.setItem('cart', JSON.stringify(cart));
+        }
+
+        function updateCartBar() {
+            const keys = Object.keys(cart);
+            const bar = document.getElementById('floatingCartBar');
+            if (!keys.length) { bar.classList.add('hidden'); return; }
+            const total = keys.reduce((s, k) => s + cart[k].price * cart[k].qty, 0);
+            const count = keys.reduce((s, k) => s + cart[k].qty, 0);
+            document.getElementById('popupCount').textContent = `${count} ${count === 1 ? 'Item' : 'Items'}`;
+            document.getElementById('popupTotal').textContent = `₹${total}`;
+            bar.classList.remove('hidden');
+        }
+
+        function goToCheckout() {
+            window.location.href = `/${studentName ? '?name=' + encodeURIComponent(studentName) : ''}#checkout`;
+        }
+
+        function goBack() {
+            window.location.href = studentName ? `/?name=${encodeURIComponent(studentName)}` : '/';
+        }
+
+        renderMenu();
+        updateCartBar();
+    </script>
+</body>
+</html>
